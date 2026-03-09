@@ -1,1 +1,19 @@
-/data
+# Virtual environment
+med_im_env/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Build artifacts
+data/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# IDE/Editor files
+
+

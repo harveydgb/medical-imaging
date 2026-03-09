@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "medical_imaging_coursework"
+name = "med_im"
 version = "1.0.0"
 description = "Medical Imaging Coursework"
 readme = "README.md"
@@ -17,6 +17,9 @@ dependencies = [
     "torch",       # For the UNet segmentation
     "torchvision"
 ]
+
+[tool.setuptools]
+packages = ["med_im"]
 
 [project.optional-dependencies]
 dev = [

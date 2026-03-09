@@ -1,0 +1,32 @@
+# Virtual environment
+med_im_env/
+.venv/
+venv/
+env/
+
+# Python cache and build
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+*.egg
+dist/
+build/
+.pytest_cache/
+
+# Git and IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+*.swp
+*~
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Docs build
+docs/_build/
+
