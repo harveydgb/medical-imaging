@@ -13,9 +13,9 @@ dependencies = [
     "scipy",
     "scikit-image",
     "matplotlib",
-    "pydicom",     # For handling DICOM files
-    "torch",       # For the UNet segmentation
-    "torchvision"
+    "pydicom",     
+    "torch",
+    "torchvision",
 ]
 
 [tool.setuptools]
@@ -23,8 +23,9 @@ packages = ["med_im"]
 
 [project.optional-dependencies]
 dev = [
-    "pytest",      # For your unit tests
-    "sphinx",      # For your auto-documentation
+    "pytest",
+    "sphinx",
+    "jupyter"
 ]
 
 [tool.pytest.ini_options]
