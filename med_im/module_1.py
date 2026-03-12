@@ -83,35 +83,79 @@ def FBP_backprojection(sinogram_dict, angle_range=360):
             backprojection_dict[angles, I0] = backprojection
     return backprojection_dict
 
+def GD_backprojection(sinogram_dict, angles, I0, theta, max_iter, gamma):
+    gd = np.zeros((512, 512))
+    for _ in range(max_iter):
+        residual = sinogram_dict[angles, I0] - radon(gd, theta)
+        gd = gd + gamma * iradon(residual, theta, filter_name=None)
+    return np.clip(gd, 0, None)
 
-def GD_backprojection(sinogram_dict, angle_range=360):
+
+def GD_backprojection_compare(sinogram_dict, angle_range=360):
     backprojection_dict = {}
     max_iter = 50
     gamma = 0.001
     for angles in [20, 90, 360]:
         theta = np.linspace(0, angle_range, angles, endpoint=False)
         for I0 in [1e2, 1e3, 1e5]:
-            gd = np.zeros((512, 512))
-            for _ in range(max_iter):
-                residual = sinogram_dict[angles, I0] - radon(gd, theta)
-                update = gamma * iradon(residual, theta, filter_name=None)
-                gd = gd + update
-            backprojection_dict[angles, I0] = gd
+            backprojection_dict[angles, I0] = GD_backprojection(sinogram_dict, angles, I0, theta, max_iter, gamma)
     return backprojection_dict
 
+#####################
+### Excercise 1.3 ###
+#####################
+
+# Excercise 1.3) (a)
 
 def FBP_compare_filters(sinogram_dict, angles=20, I0=1e2, angle_range=360):
     
     filters = ["ramp", "shepp-logan", "cosine"]
     theta = np.linspace(0, angle_range, angles, endpoint=False)
     sinogram = sinogram_dict[angles, I0]
-    recons = [np.clip(iradon(sinogram, theta, filter_name=f), 0, None) for f in filters]
-    
+    reconstructions = [np.clip(iradon(sinogram, theta, filter_name=f), 0, None) for f in filters]
+    return reconstructions
+
+def plot_filter_comparison(reconstructions):
+
+    filters = ["ramp", "shepp-logan", "cosine"]
     fig, axes = plt.subplots(1, 3, figsize=(12, 4))
     nice_names = {"ramp": "Ram-Lak", "shepp-logan": "Shepp–Logan", "cosine": "Cosine"}
-    for ax, recon, f in zip(axes, recons, filters):
+    for ax, recon, f in zip(axes, reconstructions, filters):
         im = ax.imshow(recon, cmap="gray")
         ax.set_title(rf"{nice_names[f]} filter")
+        plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    plt.tight_layout()
+    plt.show()
+
+
+# Excercise 1.3) (c)
+
+def GD_backprojection_single(sinogram_dict, angles, I0, angle_range=360, max_iter=50, gamma=0.001):
+    theta = np.linspace(0, angle_range, angles, endpoint=False)
+    return GD_backprojection(sinogram_dict, angles, I0, theta, max_iter, gamma)
+
+def OS_SART_reconstruct(sinogram_dict, angles, I0, angle_range=360, max_iter=50, gamma=0.001, n_subsets=5):
+    theta = np.linspace(0, angle_range, angles, endpoint=False)
+    sinogram = sinogram_dict[angles, I0]
+    n_angles = len(theta)
+    subset_indices = np.array_split(np.arange(n_angles), n_subsets)
+    x = np.zeros((512, 512))
+    for _ in range(max_iter):
+        for ind in subset_indices:
+            theta_b = theta[ind]
+            sinogram_b = sinogram[:, ind]
+            residual_b = sinogram_b - radon(x, theta_b)
+            x = x + gamma * iradon(residual_b, theta_b, filter_name=None)
+    return np.clip(x, 0, None)
+
+
+def plot_compare_SIRT_OS_SART(sinogram_dict, angles=20, I0=1e2, angle_range=360, max_iter=50, gamma=0.001, n_subsets=5):
+    sirt = GD_backprojection_single(sinogram_dict, angles, I0, angle_range, max_iter, gamma)
+    os_sart = OS_SART_reconstruct(sinogram_dict, angles, I0, angle_range, max_iter, gamma, n_subsets)
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+    for ax, recon, title in zip(axes, [sirt, os_sart], ["SIRT (gradient descent)", "OS-SART"]):
+        im = ax.imshow(recon, cmap="gray")
+        ax.set_title(title)
         plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     plt.tight_layout()
     plt.show()

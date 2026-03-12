@@ -13,6 +13,7 @@ dependencies = [
     "scipy",
     "scikit-image",
     "matplotlib",
+    "PyWavelets",
     "pydicom",     
     "torch",
     "torchvision",
