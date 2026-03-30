@@ -9,12 +9,13 @@ __pycache__/
 .Python
 
 # Build artifacts
-data/
+docs/_build/
 
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/
 
 # IDE/Editor files
+.DS_Store
 
 instructions.pdf
 instructions.md

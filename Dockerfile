@@ -3,16 +3,25 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Installing dependencies first
-COPY pyproject.toml README.md ./
-RUN pip install --no-cache-dir -e .
+ENV MPLBACKEND=Agg
 
-# Copying package and notebooks
+RUN pip install --no-cache-dir \
+	numpy==2.4.4 \
+	scipy==1.17.1 \
+	scikit-image==0.26.0 \
+	matplotlib==3.10.8 \
+	PyWavelets==1.9.0 \
+	pytest==9.0.2 \
+	sphinx==9.1.0 \
+	ipykernel==7.2.0
+
+COPY pyproject.toml ./
+COPY README.md ./
 COPY med_im/ ./med_im/
-COPY solutions.ipynb ./
+COPY notebooks/ ./notebooks/
+COPY tests/ ./tests/
+COPY docs/ ./docs/
+COPY data/ ./data/
 
-# Uncomment when you have a tests/ directory:
-# COPY tests/ ./tests/
-
-# Default: run tests (or override with e.g. jupyter notebook)
+# Default: run the unit tests
 CMD ["pytest", "tests/", "-v"]
