@@ -30,3 +30,6 @@ build/
 # Docs build
 docs/_build/
 
+instructions.pdf
+instructions.md
+constraints.md
