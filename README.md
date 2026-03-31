@@ -74,3 +74,14 @@ docker run --rm med-im-coursework
 
 - This repository is used as a script-and-notebook project rather than an installed Python package.
 - The functions in `med_im/` are documented with Sphinx-compatible docstrings.
+
+## Use of Generative Tools
+
+This project has utilised auto-generative tools in the development of the repo and the code.
+
+Example prompts used for this project:
+- Generate code for a plot
+- Create a general README.md template structure for this project
+- Generate a doc-string for this function
+- Review overall project structure for completeness, consistency and best practice
+- Present this text data in a clear table below the cell

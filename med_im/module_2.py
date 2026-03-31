@@ -7,8 +7,22 @@ methods, and visualizing the results.
 
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
 from scipy.ndimage import gaussian_filter
 from skimage.restoration import denoise_bilateral, denoise_wavelet
+
+
+ASSETS_DIR = Path(__file__).resolve().parent.parent / 'assets'
+
+
+def _save_figure(save_filename):
+    """Save the current Matplotlib figure into the coursework assets folder."""
+
+    if not save_filename:
+        return
+
+    ASSETS_DIR.mkdir(exist_ok=True)
+    plt.savefig(ASSETS_DIR / save_filename, bbox_inches='tight')
 
 
 
@@ -55,7 +69,7 @@ def get_kspace_coil_mags(data):
     return [np.log1p(np.abs(data[i])) for i in range(6)]
 
 
-def plot_kspace_coil_mags(kspace_coil_mags):
+def plot_kspace_coil_mags(kspace_coil_mags, save_filename=None):
     """Plot k-space magnitude images for each coil.
 
     Args:
@@ -64,10 +78,11 @@ def plot_kspace_coil_mags(kspace_coil_mags):
 
     fig, axes = plt.subplots(2, 3, figsize=(12, 8))
     for i, mag in enumerate(kspace_coil_mags):
-        axes.flat[i].imshow(mag, cmap='gray')
+        axes.flat[i].imshow(mag, cmap='grey')
         axes.flat[i].set_title(f'Coil {i + 1}')
         axes.flat[i].axis('off')
     plt.tight_layout()
+    _save_figure(save_filename)
     plt.show()
 
 
@@ -88,7 +103,7 @@ def rotate_image_anticlockwise_90(image):
 
     return np.rot90(image, k=1)
 
-def plot_one_coil_mag_phase(complex_im):
+def plot_one_coil_mag_phase(complex_im, save_filename=None):
     """Plot magnitude and phase for a single coil image.
 
     Args:
@@ -98,13 +113,14 @@ def plot_one_coil_mag_phase(complex_im):
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
     axes[0].imshow(rotate_image_anticlockwise_90(np.abs(complex_im)), cmap='gray')
     axes[0].set_title('Magnitude')
-    axes[1].imshow(rotate_image_anticlockwise_90(np.angle(complex_im)), cmap='gray')
+    axes[1].imshow(rotate_image_anticlockwise_90(np.angle(complex_im)), cmap='twilight_shifted')
     axes[1].set_title('Phase')
     plt.tight_layout()
+    _save_figure(save_filename)
     plt.show()
 
 
-def plot_all_coil_magnitudes(image_space_data):
+def plot_all_coil_magnitudes(image_space_data, save_filename=None):
     """Plot magnitude images for all coils.
 
     Args:
@@ -117,6 +133,7 @@ def plot_all_coil_magnitudes(image_space_data):
         axes.flat[i].set_title(f'Coil {i + 1}')
         axes.flat[i].axis('off')
     plt.tight_layout()
+    _save_figure(save_filename)
     plt.show()
 
 
@@ -133,7 +150,7 @@ def combine_coils(image_space_data):
     return np.sqrt(np.sum(np.abs(image_space_data) ** 2, axis=0)).real
 
 
-def plot_combined(combined_im):
+def plot_combined(combined_im, save_filename=None):
     """Plot the combined coil image.
 
     Args:
@@ -144,6 +161,7 @@ def plot_combined(combined_im):
     plt.imshow(rotate_image_anticlockwise_90(combined_im), cmap='gray')
     plt.axis('off')
     plt.tight_layout()
+    _save_figure(save_filename)
     plt.show()
 
 
@@ -225,7 +243,7 @@ def denoise_coils_wavelet(image_space_data, sigma=None, method='BayesShrink'):
     return out
 
 
-def plot_denoised_coils(denoised_magnitudes, title='Denoised'):
+def plot_denoised_coils(denoised_magnitudes, title='Denoised', save_filename=None):
     """Plot denoised magnitude images for all coils.
 
     Args:
@@ -240,6 +258,7 @@ def plot_denoised_coils(denoised_magnitudes, title='Denoised'):
         axes.flat[i].axis('off')
     fig.suptitle(title, fontsize=12)
     plt.tight_layout()
+    _save_figure(save_filename)
     plt.show()
 
 
