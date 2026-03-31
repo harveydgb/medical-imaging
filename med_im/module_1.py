@@ -738,7 +738,8 @@ def plot_compare_SIRT_OS_SART(
     I0=1e2,
     angle_range=360,
     max_iter=50,
-    gamma=0.001,
+    sirt_gamma=0.001,
+    sart_gamma=0.0001,
     n_subsets=5,
     save_filename=None,
     reference=None,
@@ -747,11 +748,11 @@ def plot_compare_SIRT_OS_SART(
     """Plot SIRT and OS-SART reconstructions for one experiment setting."""
 
     start = time.perf_counter()
-    sirt = GD_backprojection_single(sinogram_dict, angles, I0, angle_range, max_iter, gamma)
+    sirt = GD_backprojection_single(sinogram_dict, angles, I0, angle_range, max_iter, sirt_gamma)
     sirt_runtime = time.perf_counter() - start
 
     start = time.perf_counter()
-    os_sart = OS_SART_reconstruct(sinogram_dict, angles, I0, angle_range, max_iter, gamma, n_subsets)
+    os_sart = OS_SART_reconstruct(sinogram_dict, angles, I0, angle_range, max_iter, sart_gamma, n_subsets)
     os_sart_runtime = time.perf_counter() - start
 
     reference = _load_reference_if_available(reference)
