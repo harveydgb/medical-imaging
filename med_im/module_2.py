@@ -10,10 +10,16 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy.ndimage import gaussian_filter
 from skimage.restoration import denoise_bilateral, denoise_wavelet
+from skimage.metrics import structural_similarity
 
 
-ASSETS_DIR = Path(__file__).resolve().parent.parent / 'assets'
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = BASE_DIR / 'data'
+ASSETS_DIR = BASE_DIR / 'assets'
 
+########################
+### Helper Functions ###
+########################
 
 def _save_figure(save_filename):
     """Save the current Matplotlib figure into the coursework assets folder."""
@@ -25,13 +31,30 @@ def _save_figure(save_filename):
     plt.savefig(ASSETS_DIR / save_filename, bbox_inches='tight')
 
 
+def _plot_coil_grid(images, save_filename=None, suptitle=None, cmap='gray'):
+    """Plot a 2x3 grid of coil images with consistent formatting."""
 
+    fig, axes = plt.subplots(2, 3, figsize=(12, 8))
+    for ax in axes.flat:
+        ax.axis('off')
 
+    for index, image in enumerate(images):
+        axes.flat[index].imshow(image, cmap=cmap)
+        axes.flat[index].set_title(f'Coil {index + 1}')
+        axes.flat[index].axis('off')
+
+    if suptitle is not None:
+        fig.suptitle(suptitle, fontsize=12)
+
+    plt.tight_layout()
+    _save_figure(save_filename)
+    plt.show()
 
 #####################
 ### Excercise 2.1 ###
 #####################
 
+# Excercise 2.1 a
 def load_kspace_data():
     """Load the coursework knee k-space array from disk.
 
@@ -39,23 +62,10 @@ def load_kspace_data():
         numpy.ndarray: Complex-valued k-space array.
     """
 
-    knee_data = np.load(r'''../data/knee.npy''')
-    return knee_data
+    return np.load(DATA_DIR / 'knee.npy')
 
 
-def coil_dimension(data):
-    """Return the coil dimension index.
-
-    Args:
-        data (numpy.ndarray): Loaded k-space array.
-
-    Returns:
-        int: Coil axis index.
-    """
-
-    return 0
-
-
+# Excercise 2.1 b
 def get_kspace_coil_mags(data):
     """Compute log-scaled k-space magnitudes for each coil.
 
@@ -66,9 +76,10 @@ def get_kspace_coil_mags(data):
         list[numpy.ndarray]: Display-ready magnitude arrays.
     """
 
-    return [np.log1p(np.abs(data[i])) for i in range(6)]
+    return [np.log1p(np.abs(coil)) for coil in data]
 
 
+# Excercise 2.1 b
 def plot_kspace_coil_mags(kspace_coil_mags, save_filename=None):
     """Plot k-space magnitude images for each coil.
 
@@ -76,16 +87,10 @@ def plot_kspace_coil_mags(kspace_coil_mags, save_filename=None):
         kspace_coil_mags (list[numpy.ndarray]): Magnitude images to plot.
     """
 
-    fig, axes = plt.subplots(2, 3, figsize=(12, 8))
-    for i, mag in enumerate(kspace_coil_mags):
-        axes.flat[i].imshow(mag, cmap='grey')
-        axes.flat[i].set_title(f'Coil {i + 1}')
-        axes.flat[i].axis('off')
-    plt.tight_layout()
-    _save_figure(save_filename)
-    plt.show()
+    _plot_coil_grid(kspace_coil_mags, save_filename=save_filename, cmap='grey')
 
 
+# Excercise 2.1 c
 def kspace_to_image_space(data):
     """Transform each coil from k-space to image space.
 
@@ -98,11 +103,8 @@ def kspace_to_image_space(data):
 
     return np.fft.ifft2(data, axes=(-2, -1))
 
-def rotate_image_anticlockwise_90(image):
-    """Rotate a 2D image by 90 degrees anticlockwise."""
 
-    return np.rot90(image, k=1)
-
+# Excercise 2.1 c
 def plot_one_coil_mag_phase(complex_im, save_filename=None):
     """Plot magnitude and phase for a single coil image.
 
@@ -111,15 +113,16 @@ def plot_one_coil_mag_phase(complex_im, save_filename=None):
     """
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-    axes[0].imshow(rotate_image_anticlockwise_90(np.abs(complex_im)), cmap='gray')
+    axes[0].imshow(np.rot90(np.abs(complex_im)), cmap='gray')
     axes[0].set_title('Magnitude')
-    axes[1].imshow(rotate_image_anticlockwise_90(np.angle(complex_im)), cmap='twilight_shifted')
+    axes[1].imshow(np.rot90(np.angle(complex_im)), cmap='twilight_shifted')
     axes[1].set_title('Phase')
     plt.tight_layout()
     _save_figure(save_filename)
     plt.show()
 
 
+# Excercise 2.1 d
 def plot_all_coil_magnitudes(image_space_data, save_filename=None):
     """Plot magnitude images for all coils.
 
@@ -127,16 +130,11 @@ def plot_all_coil_magnitudes(image_space_data, save_filename=None):
         image_space_data (numpy.ndarray): Complex image-space data.
     """
 
-    fig, axes = plt.subplots(2, 3, figsize=(12, 8))
-    for i in range(6):
-        axes.flat[i].imshow(rotate_image_anticlockwise_90(np.abs(image_space_data[i])), cmap='gray')
-        axes.flat[i].set_title(f'Coil {i + 1}')
-        axes.flat[i].axis('off')
-    plt.tight_layout()
-    _save_figure(save_filename)
-    plt.show()
+    coil_images = [np.rot90(np.abs(coil)) for coil in image_space_data]
+    _plot_coil_grid(coil_images, save_filename=save_filename)
 
 
+# Excercise 2.1 e
 def combine_coils(image_space_data):
     """Combine the coil images with the root-sum-of-squares method.
 
@@ -147,9 +145,10 @@ def combine_coils(image_space_data):
         numpy.ndarray: Combined magnitude image.
     """
 
-    return np.sqrt(np.sum(np.abs(image_space_data) ** 2, axis=0)).real
+    return combine_coil_magnitudes(get_coil_magnitudes(image_space_data))
 
 
+# Excercise 2.1 e
 def plot_combined(combined_im, save_filename=None):
     """Plot the combined coil image.
 
@@ -158,7 +157,7 @@ def plot_combined(combined_im, save_filename=None):
     """
 
     plt.figure(figsize=(6, 6))
-    plt.imshow(rotate_image_anticlockwise_90(combined_im), cmap='gray')
+    plt.imshow(np.rot90(combined_im), cmap='gray')
     plt.axis('off')
     plt.tight_layout()
     _save_figure(save_filename)
@@ -166,8 +165,12 @@ def plot_combined(combined_im, save_filename=None):
 
 
 #####################
-### Exercise 2.2 ###
+### Excercise 2.2 ###
 #####################
+
+########################
+### Helper Functions ###
+########################
 
 def get_coil_magnitudes(image_space_data):
     """Return the per-coil image magnitudes.
@@ -182,6 +185,20 @@ def get_coil_magnitudes(image_space_data):
     return np.abs(image_space_data).astype(np.float64)
 
 
+def combine_coil_magnitudes(coil_magnitudes):
+    """Combine per-coil magnitude images with root-sum-of-squares.
+
+    Args:
+        coil_magnitudes (numpy.ndarray): Magnitude images with shape `(coils, H, W)`.
+
+    Returns:
+        numpy.ndarray: Combined magnitude image.
+    """
+
+    return np.sqrt(np.sum(coil_magnitudes ** 2, axis=0)).real
+
+
+# Excercise 2.2 a
 def denoise_coils_gaussian(image_space_data, sigma=1.0):
     """Denoise each coil magnitude image with a Gaussian filter.
 
@@ -195,11 +212,12 @@ def denoise_coils_gaussian(image_space_data, sigma=1.0):
 
     mag = get_coil_magnitudes(image_space_data)
     out = np.empty_like(mag)
-    for i in range(6):
-        out[i] = gaussian_filter(mag[i], sigma=sigma, mode='nearest')
+    for index, coil_magnitude in enumerate(mag):
+        out[index] = gaussian_filter(coil_magnitude, sigma=sigma, mode='nearest')
     return out
 
 
+# Excercise 2.2 a
 def denoise_coils_bilateral(image_space_data, sigma_spatial=1, sigma_color=None):
     """Denoise each coil magnitude image with a bilateral filter.
 
@@ -214,9 +232,9 @@ def denoise_coils_bilateral(image_space_data, sigma_spatial=1, sigma_color=None)
 
     mag = get_coil_magnitudes(image_space_data)
     out = np.empty_like(mag)
-    for i in range(6):
-        out[i] = denoise_bilateral(
-            mag[i],
+    for index, coil_magnitude in enumerate(mag):
+        out[index] = denoise_bilateral(
+            coil_magnitude,
             sigma_spatial=sigma_spatial,
             sigma_color=sigma_color,
             mode='reflect',
@@ -224,6 +242,7 @@ def denoise_coils_bilateral(image_space_data, sigma_spatial=1, sigma_color=None)
     return out
 
 
+# Excercise 2.2 a
 def denoise_coils_wavelet(image_space_data, sigma=None, method='BayesShrink'):
     """Denoise each coil magnitude image with wavelet thresholding.
 
@@ -238,11 +257,18 @@ def denoise_coils_wavelet(image_space_data, sigma=None, method='BayesShrink'):
 
     mag = get_coil_magnitudes(image_space_data)
     out = np.empty_like(mag)
-    for i in range(6):
-        out[i] = denoise_wavelet(mag[i], sigma=sigma, method=method, mode='soft', rescale_sigma=True)
+    for index, coil_magnitude in enumerate(mag):
+        out[index] = denoise_wavelet(
+            coil_magnitude,
+            sigma=sigma,
+            method=method,
+            mode='soft',
+            rescale_sigma=True,
+        )
     return out
 
 
+# Excercise 2.2 a
 def plot_denoised_coils(denoised_magnitudes, title='Denoised', save_filename=None):
     """Plot denoised magnitude images for all coils.
 
@@ -251,17 +277,11 @@ def plot_denoised_coils(denoised_magnitudes, title='Denoised', save_filename=Non
         title (str, optional): Figure title.
     """
 
-    fig, axes = plt.subplots(2, 3, figsize=(12, 8))
-    for i in range(6):
-        axes.flat[i].imshow(rotate_image_anticlockwise_90(denoised_magnitudes[i]), cmap='gray')
-        axes.flat[i].set_title(f'Coil {i + 1}')
-        axes.flat[i].axis('off')
-    fig.suptitle(title, fontsize=12)
-    plt.tight_layout()
-    _save_figure(save_filename)
-    plt.show()
+    coil_images = [np.rot90(coil) for coil in denoised_magnitudes]
+    _plot_coil_grid(coil_images, save_filename=save_filename, suptitle=title)
 
 
+# Excercise 2.2 b
 def butterworth_lowpass_filter(shape, D0=30, n=2):
     """Create a low-pass Butterworth filter mask.
 
@@ -283,7 +303,8 @@ def butterworth_lowpass_filter(shape, D0=30, n=2):
     return H
 
 
-def butterworth_first_coil_image(kspace_data, D0=30, n=2):
+# Excercise 2.2 b
+def butterworth_first_coil_image(kspace_data, D0=30, n=2, coil_num=1):
     """Apply a Butterworth low-pass filter to the first coil in k-space.
 
     Args:
@@ -294,25 +315,92 @@ def butterworth_first_coil_image(kspace_data, D0=30, n=2):
     Returns:
         numpy.ndarray: Filtered complex image-space data for the first coil.
     """
-
-    first_coil = kspace_data[0]
-    first_coil_shift = np.fft.fftshift(first_coil)
+    first_coil = kspace_data[coil_num-1]
+    
     H = butterworth_lowpass_filter(first_coil.shape, D0=D0, n=n)
-    filtered_shift = first_coil_shift * H
-    filtered_kspace = np.fft.ifftshift(filtered_shift)
+    
+    filtered_kspace = first_coil * H
+    
     filtered_image = np.fft.ifft2(filtered_kspace)
+    
     return filtered_image
 
 
-def denoise_combined_gaussian(combined_image, sigma=1.0):
-    """Denoise the combined image with a Gaussian filter.
+#############################
+### Denoising Metrics 2.2 ###
+#############################
+
+def estimate_snr(magnitude_image, signal_roi, noise_roi):
+    """Estimate SNR from a magnitude image using signal and noise ROIs.
 
     Args:
-        combined_image (numpy.ndarray): Combined image.
-        sigma (float, optional): Gaussian smoothing parameter.
+        magnitude_image (numpy.ndarray): 2D magnitude image.
+        signal_roi (tuple): ``(row_start, row_end, col_start, col_end)`` for signal.
+        noise_roi (tuple): ``(row_start, row_end, col_start, col_end)`` for noise.
 
     Returns:
-        numpy.ndarray: Smoothed combined image.
+        float: Estimated SNR (linear).
     """
+    signal_mean = np.mean(
+        magnitude_image[signal_roi[0]:signal_roi[1], signal_roi[2]:signal_roi[3]]
+    )
+    noise_std = np.std(
+        magnitude_image[noise_roi[0]:noise_roi[1], noise_roi[2]:noise_roi[3]]
+    )
+    if noise_std == 0:
+        return float('inf')
+    return signal_mean / noise_std
 
-    return gaussian_filter(combined_image, sigma=sigma, mode='nearest')
+
+def compute_denoising_metrics(original_mags, denoised_mags,
+                              signal_roi=None, noise_roi=None):
+    """Compute per-coil SNR and SSIM comparing original and denoised magnitudes.
+
+    Default ROIs are chosen for the 280x280 knee images: a background corner
+    patch for noise and a central anatomy patch for signal.
+
+    Args:
+        original_mags (numpy.ndarray): Original magnitudes, ``(N, H, W)`` or ``(H, W)``.
+        denoised_mags (numpy.ndarray): Denoised magnitudes, same shape.
+        signal_roi (tuple | None): ``(row_start, row_end, col_start, col_end)``.
+        noise_roi (tuple | None): ``(row_start, row_end, col_start, col_end)``.
+
+    Returns:
+        list[dict]: One dict per coil with keys ``coil``, ``snr_original``,
+        ``snr_denoised``, ``noise_std_original``, ``noise_std_denoised``, ``ssim``.
+    """
+    if signal_roi is None:
+        signal_roi = (120, 160, 120, 160)
+    if noise_roi is None:
+        noise_roi = (5, 35, 5, 35)
+
+    single = original_mags.ndim == 2
+    if single:
+        original_mags = original_mags[np.newaxis]
+        denoised_mags = denoised_mags[np.newaxis]
+
+    results = []
+    for i in range(original_mags.shape[0]):
+        orig = original_mags[i]
+        den = denoised_mags[i]
+
+        snr_orig = estimate_snr(orig, signal_roi, noise_roi)
+        snr_den = estimate_snr(den, signal_roi, noise_roi)
+        noise_std_orig = np.std(orig[noise_roi[0]:noise_roi[1],
+                                     noise_roi[2]:noise_roi[3]])
+        noise_std_den = np.std(den[noise_roi[0]:noise_roi[1],
+                                    noise_roi[2]:noise_roi[3]])
+
+        data_range = orig.max() - orig.min()
+        ssim_val = structural_similarity(orig, den, data_range=data_range)
+
+        results.append({
+            'coil': 'combined' if single else i + 1,
+            'snr_original': snr_orig,
+            'snr_denoised': snr_den,
+            'noise_std_original': noise_std_orig,
+            'noise_std_denoised': noise_std_den,
+            'ssim': ssim_val,
+        })
+
+    return results

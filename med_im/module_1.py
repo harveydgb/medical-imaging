@@ -5,9 +5,11 @@ simulating noisy sinograms, reconstructing images with filtered backprojection
 and gradient-descent-style updates, and comparing reconstruction variants.
 """
 
+import time
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
-import time
 from skimage.color import rgb2gray
 from skimage.io import imread
 from skimage.metrics import peak_signal_noise_ratio
@@ -16,13 +18,13 @@ from skimage.transform import iradon
 from skimage.transform import radon
 
 
-def _resolve_parameter_list(values, default_values):
-    """Return a concrete parameter list while preserving default behaviour."""
+BASE_DIR = Path(__file__).resolve().parent.parent
+ASSETS_DIR = BASE_DIR / "assets"
+DATA_DIR = BASE_DIR / "data"
 
-    if values is None:
-        return list(default_values)
-    return list(values)
-
+########################
+### Helper Functions ###
+########################
 
 def _get_experiment_grid(experiment_dict):
     """Infer the angle and intensity grid from dictionary keys."""
@@ -40,11 +42,51 @@ def _format_i0_label(I0):
         return f"10^{{{int(round(exponent))}}}"
     return f"{I0:.0e}"
 
+
+def _limited_angle_panel_title(angle_range, I0):
+    """Format panel titles for limited-angle experiments."""
+
+    return rf'Angular range ${angle_range}^\circ$, $I_0 = {_format_i0_label(I0)}$'
+
+
+def _save_figure(save_filename):
+    """Save the current figure into the coursework assets folder."""
+
+    if not save_filename:
+        return
+
+    ASSETS_DIR.mkdir(exist_ok=True)
+    plt.savefig(ASSETS_DIR / save_filename, bbox_inches='tight')
+
+
+def _print_table(title, header, rows):
+    """Print a simple aligned text table."""
+
+    if title is not None:
+        print(title)
+
+    print(header)
+    print("-" * len(header))
+    for row in rows:
+        print(row)
+
+
+def _load_reference_image(reference):
+    """Use the supplied reference image or load the coursework default."""
+
+    if reference is not None:
+        return reference
+
+    try:
+        return load_process_image()
+    except (FileNotFoundError, OSError):
+        return None
+
 #####################
 ### Excercise 1.1 ###
 #####################
 
-# Excercise 1.1) (a)
+# Excercise 1.1 a
 def load_process_image():
     """Load the CT coursework image and convert it to grayscale.
 
@@ -54,13 +96,14 @@ def load_process_image():
         Two-dimensional grayscale image scaled to a smaller range.
     """
 
-    image = imread("../data/CT_exercise_1.png")
+    image = imread(DATA_DIR / "CT_exercise_1.png")
     image = rgb2gray(image[:,:,:3])
     image = image/100
 
     return image
 
 
+# Excercise 1.1 a
 def image_outputs(save_filename=None):
     """Display basic image information and plot the loaded CT image.
 
@@ -78,15 +121,13 @@ def image_outputs(save_filename=None):
     
     plt.figure()
     plt.imshow(image,cmap='grey')
-    if save_filename:
-        import os
-        os.makedirs('../assets', exist_ok=True)
-        plt.savefig(f'../assets/{save_filename}', bbox_inches='tight')
+    _save_figure(save_filename)
     plt.show()
 
     return image
 
-# Excercise 1.1) (b)
+
+# Excercise 1.1 b
 
 def create_noisy_sinograms(image, angle_range=360, seed=None, angles_list=None, I0_list=None):
     """Create noisy sinograms across the required angle and dose settings.
@@ -112,8 +153,8 @@ def create_noisy_sinograms(image, angle_range=360, seed=None, angles_list=None, 
 
     rng = np.random.default_rng(seed)
     noisy_sinogram_dict = {}
-    angles_list = _resolve_parameter_list(angles_list, [20, 90, 360])
-    I0_list = _resolve_parameter_list(I0_list, [1e2, 1e3, 1e5])
+    angles_list = list(angles_list) if angles_list is not None else [20, 90, 360]
+    I0_list = list(I0_list) if I0_list is not None else [1e2, 1e3, 1e5]
 
     for angles in angles_list:
         theta = np.linspace(0, angle_range, angles, endpoint=False)
@@ -127,6 +168,10 @@ def create_noisy_sinograms(image, angle_range=360, seed=None, angles_list=None, 
             noisy_sinogram_dict[angles, I0] = sinogram_noisy
     return noisy_sinogram_dict
 
+
+########################
+### Helper Functions ###
+########################
 
 def plot_sinogram_dict(sinogram_dict, suptitle=None, save_filename=None, panel_title_fn=None):
     """Plot a grid of sinograms or reconstructions.
@@ -173,13 +218,11 @@ def plot_sinogram_dict(sinogram_dict, suptitle=None, save_filename=None, panel_t
     else:
         plt.tight_layout()
 
-    if save_filename:
-        import os
-        os.makedirs('../assets', exist_ok=True)
-        plt.savefig(f'../assets/{save_filename}', bbox_inches='tight')
+    _save_figure(save_filename)
     plt.show()
 
 
+# Excercise 1.2 a
 def plot_limited_angle_sinograms(
     image,
     angle_ranges,
@@ -211,7 +254,7 @@ def plot_limited_angle_sinograms(
         Dictionary keyed by ``(angle_range, I0)``.
     """
 
-    I0_list = _resolve_parameter_list(I0_list, [1e2, 1e3, 1e5])
+    I0_list = list(I0_list) if I0_list is not None else [1e2, 1e3, 1e5]
     limited_angle_sinograms = {}
 
     for angle_range in angle_ranges:
@@ -230,15 +273,13 @@ def plot_limited_angle_sinograms(
         limited_angle_sinograms,
         suptitle=rf'Noisy sinograms with $N_\theta = {projection_count}$',
         save_filename=save_filename,
-        panel_title_fn=lambda angle_range, I0: (
-            rf'Angular range ${angle_range}^\circ$, $I_0 = {_format_i0_label(I0)}$'
-        ),
+        panel_title_fn=_limited_angle_panel_title,
     )
 
     return limited_angle_sinograms
 
 
-# Excercise 1.1) (c)
+# Excercise 1.1 c
 
 def FBP_backprojection(sinogram_dict, angle_range=360):
     """Reconstruct sinograms using filtered backprojection.
@@ -266,6 +307,8 @@ def FBP_backprojection(sinogram_dict, angle_range=360):
             backprojection_dict[angles, I0] = backprojection
     return backprojection_dict
 
+
+# Excercise 1.1 c
 def GD_backprojection(sinogram_dict, angles, I0, theta, max_iter, gamma):
     """Run a simple gradient-descent-style iterative reconstruction.
 
@@ -290,13 +333,15 @@ def GD_backprojection(sinogram_dict, angles, I0, theta, max_iter, gamma):
         Reconstructed image.
     """
 
-    gd = np.zeros((512, 512))
+    output_size = sinogram_dict[angles, I0].shape[0]
+    gd = np.zeros((output_size, output_size))
     for _ in range(max_iter):
         residual = sinogram_dict[angles, I0] - radon(gd, theta)
         gd = gd + gamma * iradon(residual, theta, filter_name=None)
     return np.clip(gd, 0, None)
 
 
+# Excercise 1.1 c
 def GD_backprojection_compare(sinogram_dict, angle_range=360):
     """Reconstruct all configured sinograms with the GD-based method.
 
@@ -323,6 +368,10 @@ def GD_backprojection_compare(sinogram_dict, angle_range=360):
             backprojection_dict[angles, I0] = GD_backprojection(sinogram_dict, angles, I0, theta, max_iter, gamma)
     return backprojection_dict
 
+
+########################
+### Helper Functions ###
+########################
 
 def reconstruction_metrics(reference, reconstruction):
     """Compute simple image-quality metrics for one reconstruction.
@@ -370,56 +419,23 @@ def reconstruction_metrics_dict(reference, reconstruction_dict):
     return metrics_dict
 
 
-def print_metrics_table(metrics_dict, method_name=None):
+def print_metrics_table(metrics_dict, method_name=None, first_column_name="angles"):
     """Print a compact metrics table for the coursework experiment grid."""
 
-    if method_name is not None:
-        print(f"{method_name} metrics")
+    title = f"{method_name} metrics" if method_name is not None else None
+    header = f"{first_column_name:>6} {'I0':>8} {'rmse':>10} {'psnr':>10} {'ssim':>10}"
 
-    header = f"{'angles':>6} {'I0':>8} {'rmse':>10} {'psnr':>10} {'ssim':>10}"
-    print(header)
-    print("-" * len(header))
-
-    angles_list, I0_list = _get_experiment_grid(metrics_dict)
-    for angles in angles_list:
+    primary_values, I0_list = _get_experiment_grid(metrics_dict)
+    rows = []
+    for primary_value in primary_values:
         for I0 in I0_list:
-            metrics = metrics_dict[(angles, I0)]
-            print(
-                f"{angles:>6} {I0:>8.0e} {metrics['rmse']:>10.4f} "
+            metrics = metrics_dict[(primary_value, I0)]
+            rows.append(
+                f"{primary_value:>6} {I0:>8.0e} {metrics['rmse']:>10.4f} "
                 f"{metrics['psnr']:>10.2f} {metrics['ssim']:>10.4f}"
             )
 
-
-def print_limited_angle_metrics_table(metrics_dict, method_name=None):
-    """Print a compact metrics table for fixed-``N_theta`` limited-angle runs."""
-
-    if method_name is not None:
-        print(f"{method_name} metrics")
-
-    header = f"{'range':>6} {'I0':>8} {'rmse':>10} {'psnr':>10} {'ssim':>10}"
-    print(header)
-    print("-" * len(header))
-
-    angle_ranges, I0_list = _get_experiment_grid(metrics_dict)
-    for angle_range in angle_ranges:
-        for I0 in I0_list:
-            metrics = metrics_dict[(angle_range, I0)]
-            print(
-                f"{angle_range:>6} {I0:>8.0e} {metrics['rmse']:>10.4f} "
-                f"{metrics['psnr']:>10.2f} {metrics['ssim']:>10.4f}"
-            )
-
-
-def _load_reference_if_available(reference=None):
-    """Return the provided reference image or load the coursework image if possible."""
-
-    if reference is not None:
-        return reference
-
-    try:
-        return load_process_image()
-    except (FileNotFoundError, OSError):
-        return None
+    _print_table(title, header, rows)
 
 
 def print_named_metrics_table(metrics_dict, metric_keys=None, runtimes=None, title=None):
@@ -442,27 +458,25 @@ def print_named_metrics_table(metrics_dict, metric_keys=None, runtimes=None, tit
         "runtime": lambda value: f"{value:.2f}",
     }
 
-    if title is not None:
-        print(title)
-
     header = f"{'method':<14}"
     for metric_key in metric_keys:
         header += f" {label_map.get(metric_key, metric_key.upper()):>10}"
     if runtimes is not None:
         header += f" {'runtime_s':>10}"
 
-    print(header)
-    print("-" * len(header))
-
+    rows = []
     for name, metrics in metrics_dict.items():
         row = f"{name:<14}"
         for metric_key in metric_keys:
             row += f" {formatter_map[metric_key](metrics[metric_key]):>10}"
         if runtimes is not None:
             row += f" {formatter_map['runtime'](runtimes[name]):>10}"
-        print(row)
+        rows.append(row)
+
+    _print_table(title, header, rows)
 
 
+# Excercise 1.1 c
 def compare_reconstruction_methods(reference, sinogram_dict, angle_range=360, save_prefix=None):
     """Run the full FBP versus GD comparison used in Exercise 1.1(c).
 
@@ -494,11 +508,10 @@ def compare_reconstruction_methods(reference, sinogram_dict, angle_range=360, sa
         reconstruction_dict = reconstruction_function(sinogram_dict, angle_range=angle_range)
         runtime = time.perf_counter() - start
 
-        reconstruction_save_filename = None
-        if save_prefix is not None:
-            reconstruction_save_filename = f'{save_prefix}_{method_name}.png'
-
-        plot_sinogram_dict(reconstruction_dict, save_filename=reconstruction_save_filename)
+        plot_sinogram_dict(
+            reconstruction_dict,
+            save_filename=f'{save_prefix}_{method_name}.png' if save_prefix is not None else None,
+        )
 
         metrics_dict = reconstruction_metrics_dict(reference, reconstruction_dict)
         print(f'{method_name} total runtime: {runtime:.2f} s')
@@ -516,6 +529,7 @@ def compare_reconstruction_methods(reference, sinogram_dict, angle_range=360, sa
     return results
 
 
+# Excercise 1.2 b
 def compare_limited_angle_reconstruction_methods(
     reference,
     angle_ranges,
@@ -547,7 +561,7 @@ def compare_limited_angle_reconstruction_methods(
         Reconstruction images, metrics, and runtime for each method.
     """
 
-    I0_list = _resolve_parameter_list(I0_list, [1e2, 1e3, 1e5])
+    I0_list = list(I0_list) if I0_list is not None else [1e2, 1e3, 1e5]
     results = {
         'FBP': {'reconstructions': {}, 'metrics': {}, 'runtime': 0.0},
         'GD': {'reconstructions': {}, 'metrics': {}, 'runtime': 0.0},
@@ -580,21 +594,19 @@ def compare_limited_angle_reconstruction_methods(
                 results[method_name]['metrics'][target_key] = reconstruction_metrics(reference, reconstruction)
 
     for index, method_name in enumerate(['FBP', 'GD']):
-        reconstruction_save_filename = None
-        if save_prefix is not None:
-            reconstruction_save_filename = f'{save_prefix}_{method_name}.png'
-
         plot_sinogram_dict(
             results[method_name]['reconstructions'],
             suptitle=rf'{method_name} reconstructions with $N_\theta = {projection_count}$',
-            save_filename=reconstruction_save_filename,
-            panel_title_fn=lambda angle_range, I0: (
-                rf'Angular range ${angle_range}^\circ$, $I_0 = {_format_i0_label(I0)}$'
-            ),
+            save_filename=f'{save_prefix}_{method_name}.png' if save_prefix is not None else None,
+            panel_title_fn=_limited_angle_panel_title,
         )
 
         print(f"{method_name} total runtime: {results[method_name]['runtime']:.2f} s")
-        print_limited_angle_metrics_table(results[method_name]['metrics'], method_name=method_name)
+        print_metrics_table(
+            results[method_name]['metrics'],
+            method_name=method_name,
+            first_column_name="range",
+        )
 
         if index < len(methods) - 1:
             print()
@@ -605,7 +617,7 @@ def compare_limited_angle_reconstruction_methods(
 ### Excercise 1.3 ###
 #####################
 
-# Excercise 1.3) (a)
+# Excercise 1.3 b
 
 def FBP_compare_filters(
     sinogram_dict,
@@ -645,7 +657,8 @@ def FBP_compare_filters(
     sinogram = sinogram_dict[angles, I0]
     reconstructions = [np.clip(iradon(sinogram, theta, filter_name=f), 0, None) for f in filters]
 
-    reference = _load_reference_if_available(reference)
+    reference = _load_reference_image(reference)
+
     if reference is not None:
         nice_names = {"ramp": "Ram-Lak", "shepp-logan": "Shepp-Logan", "cosine": "Cosine"}
         metrics_dict = {
@@ -660,6 +673,8 @@ def FBP_compare_filters(
 
     return reconstructions
 
+
+# Excercise 1.3 b
 def plot_filter_comparison(reconstructions, save_filename=None):
     """Plot filter comparison reconstructions side by side.
 
@@ -677,21 +692,11 @@ def plot_filter_comparison(reconstructions, save_filename=None):
         ax.set_title(rf"{nice_names[f]} filter")
         plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     plt.tight_layout()
-    if save_filename:
-        import os
-        os.makedirs('../assets', exist_ok=True)
-        plt.savefig(f'../assets/{save_filename}', bbox_inches='tight')
+    _save_figure(save_filename)
     plt.show()
 
 
-# Excercise 1.3) (c)
-
-def GD_backprojection_single(sinogram_dict, angles, I0, angle_range=360, max_iter=50, gamma=0.001):
-    """Run the GD-based reconstruction for a single acquisition setting."""
-
-    theta = np.linspace(0, angle_range, angles, endpoint=False)
-    return GD_backprojection(sinogram_dict, angles, I0, theta, max_iter, gamma)
-
+# Excercise 1.3 c
 def OS_SART_reconstruct(sinogram_dict, angles, I0, angle_range=360, max_iter=50, gamma=0.001, n_subsets=5):
     """Run an ordered-subsets reconstruction for a single acquisition setting.
 
@@ -722,7 +727,8 @@ def OS_SART_reconstruct(sinogram_dict, angles, I0, angle_range=360, max_iter=50,
     sinogram = sinogram_dict[angles, I0]
     n_angles = len(theta)
     subset_indices = np.array_split(np.arange(n_angles), n_subsets)
-    x = np.zeros((512, 512))
+    output_size = sinogram.shape[0]
+    x = np.zeros((output_size, output_size))
     for _ in range(max_iter):
         for ind in subset_indices:
             theta_b = theta[ind]
@@ -732,6 +738,7 @@ def OS_SART_reconstruct(sinogram_dict, angles, I0, angle_range=360, max_iter=50,
     return np.clip(x, 0, None)
 
 
+# Excercise 1.3 c
 def plot_compare_SIRT_OS_SART(
     sinogram_dict,
     angles=20,
@@ -747,15 +754,18 @@ def plot_compare_SIRT_OS_SART(
 ):
     """Plot SIRT and OS-SART reconstructions for one experiment setting."""
 
+    theta = np.linspace(0, angle_range, angles, endpoint=False)
+
     start = time.perf_counter()
-    sirt = GD_backprojection_single(sinogram_dict, angles, I0, angle_range, max_iter, sirt_gamma)
+    sirt = GD_backprojection(sinogram_dict, angles, I0, theta, max_iter, sirt_gamma)
     sirt_runtime = time.perf_counter() - start
 
     start = time.perf_counter()
     os_sart = OS_SART_reconstruct(sinogram_dict, angles, I0, angle_range, max_iter, sart_gamma, n_subsets)
     os_sart_runtime = time.perf_counter() - start
 
-    reference = _load_reference_if_available(reference)
+    reference = _load_reference_image(reference)
+
     metrics_dict = None
     if reference is not None:
         metrics_dict = {
@@ -778,10 +788,7 @@ def plot_compare_SIRT_OS_SART(
         ax.set_title(title)
         plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     plt.tight_layout()
-    if save_filename:
-        import os
-        os.makedirs('../assets', exist_ok=True)
-        plt.savefig(f'../assets/{save_filename}', bbox_inches='tight')
+    _save_figure(save_filename)
     plt.show()
 
     return {
